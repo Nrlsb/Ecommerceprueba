@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tienda Moderna - Inicio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .transition-all-smooth { transition: all 0.3s ease-in-out; }
+        .cart-count { position: absolute; top: -8px; right: -10px; height: 20px; width: 20px; background-color: #ef4444; color: white; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; transform: scale(0); transition: transform 0.2s ease-out; }
+        .cart-count.active { transform: scale(1); }
+        .skeleton { background-color: #e5e7eb; border-radius: 0.5rem; animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 50% { opacity: .5; } }
+        .add-to-cart-btn.added { background-color: #16a34a; cursor: not-allowed; }
+        .out-of-stock { background-color: #9ca3af; cursor: not-allowed; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm sticky top-0 z-50">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <a href="index.html" class="text-2xl font-bold text-gray-900">Tienda<span class="text-indigo-600">Moderna</span></a>
+            <div class="hidden md:flex items-center space-x-6">
+                 <a href="index.html" class="text-gray-600 hover:text-indigo-600 transition-all-smooth">Inicio</a>
+            </div>
+            <div class="flex items-center space-x-4">
+                <a href="cart.html" class="relative text-gray-600 hover:text-indigo-600">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span id="cart-count-bubble" class="cart-count">0</span>
+                </a>
+                <button class="md:hidden text-gray-600 hover:text-indigo-600 focus:outline-none" id="mobile-menu-button"><i class="fas fa-bars"></i></button>
+            </div>
+        </nav>
+        <div class="hidden md:hidden" id="mobile-menu">
+            <a href="index.html" class="block py-2 px-4 text-sm text-gray-700 hover:bg-indigo-50">Inicio</a>
+        </div>
+    </header>
+
+    <main>
+        <!-- Hero Section -->
+        <section class="bg-indigo-600 text-white">
+            <div class="container mx-auto px-6 py-20 md:py-32 text-center">
+                <h1 class="text-4xl md:text-6xl font-bold leading-tight mb-4">Colección Verano 2024</h1>
+                <p class="text-lg md:text-xl text-indigo-200 mb-8">Descubre las últimas tendencias y renueva tu estilo.</p>
+                <a href="#product-grid-section" class="bg-white text-indigo-600 font-bold py-3 px-8 rounded-full hover:bg-indigo-100 transition-all-smooth shadow-lg transform hover:scale-105">Ver Colección</a>
+            </div>
+        </section>
+
+        <!-- Featured Products Section -->
+        <section id="product-grid-section" class="py-16">
+            <div class="container mx-auto px-6">
+                <h2 class="text-3xl font-bold text-center text-gray-800 mb-2">Productos Destacados</h2>
+                <p class="text-center text-gray-500 mb-10">Los favoritos de nuestros clientes, seleccionados para ti.</p>
+                
+                <!-- Mensaje de error de configuración de Firebase -->
+                <div id="config-error" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-6" role="alert">
+                    <strong class="font-bold">¡Error de Configuración!</strong>
+                    <span class="block sm:inline"> Reemplaza los valores de marcador de `firebaseConfig` en el archivo `index.html` con tus propias credenciales de Firebase.</span>
+                </div>
+                
+                <div id="product-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                    <!-- Skeletons de Carga -->
+                    <div class="product-skeleton bg-white rounded-lg shadow-md overflow-hidden"><div class="skeleton w-full h-64"></div><div class="p-5"><div class="skeleton h-6 w-3/4 mb-2"></div><div class="skeleton h-6 w-1/4"></div></div></div>
+                    <div class="product-skeleton bg-white rounded-lg shadow-md overflow-hidden"><div class="skeleton w-full h-64"></div><div class="p-5"><div class="skeleton h-6 w-3/4 mb-2"></div><div class="skeleton h-6 w-1/4"></div></div></div>
+                    <div class="product-skeleton bg-white rounded-lg shadow-md overflow-hidden"><div class="skeleton w-full h-64"></div><div class="p-5"><div class="skeleton h-6 w-3/4 mb-2"></div><div class="skeleton h-6 w-1/4"></div></div></div>
+                    <div class="product-skeleton bg-white rounded-lg shadow-md overflow-hidden"><div class="skeleton w-full h-64"></div><div class="p-5"><div class="skeleton h-6 w-3/4 mb-2"></div><div class="skeleton h-6 w-1/4"></div></div></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white"><div class="container mx-auto px-6 py-12"><p class="text-center text-gray-500">&copy; 2024 TiendaModerna. Todos los derechos reservados.</p></div></footer>
+
+    <!-- Script principal de la aplicación -->
+    <script type="module">
+        // Importaciones de Firebase v9 (modular)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+        import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+
+        // --- CONFIGURACIÓN DE FIREBASE ---
+        // IMPORTANTE: Reemplaza estos valores con las credenciales de tu propio proyecto de Firebase.
+        // Puedes encontrarlas en la configuración de tu proyecto en la consola de Firebase.
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+                const firebaseConfig = {
+                    apiKey: "AIzaSyDl65g3b7H5O15xkZ_6ozwlEjf_BGxyLJs",
+                    authDomain: "mi-tienda-moderna.firebaseapp.com",
+                    projectId: "mi-tienda-moderna",
+                    storageBucket: "mi-tienda-moderna.firebasestorage.app",
+                    messagingSenderId: "983913954604",
+                    appId: "1:983913954604:web:1e71cad815e2e693554089",
+                    measurementId: "G-555LQ5MRJ6"
+            };
+        
+        // --- INICIALIZACIÓN ---
+        const productGrid = document.getElementById('product-grid');
+        const configErrorDiv = document.getElementById('config-error');
+
+        // Muestra un error si las credenciales de Firebase no han sido configuradas
+        if (firebaseConfig.projectId === "TU_PROJECT_ID" || firebaseConfig.apiKey === "TU_API_KEY") {
+            configErrorDiv.classList.remove('hidden');
+            productGrid.innerHTML = '';
+            // Detenemos la ejecución del script si no hay configuración
+            throw new Error("Configuración de Firebase no encontrada.");
+        }
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // --- GESTIÓN DEL CARRITO (CartManager) ---
+        const cartManager = {
+            getCart: function() { return JSON.parse(localStorage.getItem('tiendaModernaCart')) || []; },
+            saveCart: function(cart) { 
+                localStorage.setItem('tiendaModernaCart', JSON.stringify(cart)); 
+                // Dispara un evento global para que otras partes de la app (como el ícono) se actualicen
+                window.dispatchEvent(new Event('cartUpdated')); 
+            },
+            addToCart: function(productId, productData) {
+                const cart = this.getCart();
+                const existingProductIndex = cart.findIndex(item => item.id === productId);
+                if (existingProductIndex !== -1) {
+                    cart[existingProductIndex].quantity++;
+                } else {
+                    cart.push({ id: productId, ...productData, quantity: 1 });
+                }
+                this.saveCart(cart);
+            },
+            updateCartIcon: function() {
+                const cart = this.getCart();
+                const cartCountBubble = document.getElementById('cart-count-bubble');
+                const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+                cartCountBubble.textContent = totalItems;
+                cartCountBubble.classList.toggle('active', totalItems > 0);
+            }
+        };
+
+        // --- LÓGICA DE LA INTERFAZ ---
+        // Menú móvil
+        const mobileMenuButton = document.getElementById('mobile-menu-button');
+        mobileMenuButton.addEventListener('click', () => document.getElementById('mobile-menu').classList.toggle('hidden'));
+        
+        // Carga de productos desde Firestore
+        async function loadProducts() {
+            try {
+                const productsCollection = collection(db, 'productos');
+                const snapshot = await getDocs(productsCollection);
+
+                if (snapshot.empty) {
+                    productGrid.innerHTML = '<p class="col-span-full text-center text-gray-500">No se encontraron productos.</p>';
+                    return;
+                }
+                
+                productGrid.innerHTML = ''; // Limpia los skeletons
+                snapshot.forEach(doc => {
+                    const product = doc.data();
+                    const productHtml = `
+                        <div class="bg-white rounded-lg shadow-md overflow-hidden group">
+                            <div class="relative">
+                                <img src="${product.imagenUrl}" onerror="this.onerror=null;this.src='https://placehold.co/400x400/e2e8f0/4a5568?text=Error';" alt="Imagen de ${product.nombre}" class="w-full h-64 object-cover">
+                                <div class="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all-smooth">
+                                    ${
+                                        product.stock > 0
+                                        ? `<button data-id="${doc.id}" class="add-to-cart-btn text-white bg-indigo-600 py-2 px-4 rounded-lg hover:bg-indigo-700">Añadir al carrito</button>`
+                                        : `<span class="out-of-stock text-white bg-gray-500 py-2 px-4 rounded-lg">Sin Stock</span>`
+                                    }
+                                </div>
+                            </div>
+                            <div class="p-5">
+                                <h3 class="text-lg font-semibold text-gray-900">${product.nombre}</h3>
+                                <div class="flex justify-between items-center mt-1">
+                                    <p class="text-indigo-600 font-bold">$${product.precio}</p>
+                                    <p class="text-sm text-gray-500">Stock: ${product.stock}</p>
+                                </div>
+                            </div>
+                        </div>`;
+                    productGrid.innerHTML += productHtml;
+                });
+            } catch (error) {
+                console.error("Error al cargar productos: ", error);
+                productGrid.innerHTML = `<div class="col-span-full text-center text-red-500 bg-red-100 p-4 rounded-lg"><strong>Error al conectar con Firestore.</strong><br><span>Verifica tu conexión y las reglas de seguridad de Firestore.</span></div>`;
+            }
+        }
+
+        // Event listener para los botones "Añadir al carrito"
+        productGrid.addEventListener('click', async function(event) {
+            const button = event.target.closest('.add-to-cart-btn');
+            if (button && !button.disabled) {
+                const productId = button.dataset.id;
+                button.disabled = true;
+                button.textContent = 'Añadiendo...';
+                try {
+                    const productDocRef = doc(db, 'productos', productId);
+                    const docSnap = await getDoc(productDocRef);
+                    if (docSnap.exists()) {
+                        cartManager.addToCart(productId, docSnap.data());
+                        button.textContent = '¡Añadido!';
+                        button.classList.add('added');
+                    } else {
+                         throw new Error("El producto ya no existe.");
+                    }
+                } catch (error) {
+                    console.error("Error al añadir al carrito:", error);
+                    button.textContent = 'Error';
+                    // No re-habilitamos el botón de error para evitar clics múltiples
+                }
+            }
+        });
+        
+        // --- EJECUCIÓN INICIAL ---
+        // Escucha el evento personalizado para actualizar el ícono del carrito
+        window.addEventListener('cartUpdated', cartManager.updateCartIcon.bind(cartManager));
+        // Actualiza el ícono al cargar la página por primera vez
+        cartManager.updateCartIcon(); 
+        // Carga los productos desde la base de datos
+        loadProducts();
+    </script>
+</body>
+</html>

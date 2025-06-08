@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proceso de Pago - Tienda Moderna</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://sdk.mercadopago.com/js/v2"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f9fafb; }
+        .form-input { width: 100%; padding: 0.75rem; border-radius: 0.375rem; border: 1px solid #d1d5db; transition: border-color 0.2s, box-shadow 0.2s; }
+        .form-input:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2); }
+        .form-label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+        #loader { display: none; }
+        .error-message { transition: opacity 0.3s, transform 0.3s; }
+    </style>
+</head>
+<body>
+    <header class="bg-white shadow-sm">
+        <div class="container mx-auto px-6 py-4 text-center">
+            <a href="index.html" class="text-3xl font-bold text-gray-900">Tienda<span class="text-indigo-600">Moderna</span></a>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-6 py-12">
+        <!-- Contenedor para mensajes de error -->
+        <div id="error-container" class="error-message fixed top-5 right-5 bg-red-500 text-white p-4 rounded-lg shadow-lg opacity-0 transform translate-y-2 pointer-events-none z-50">
+            <p id="error-text"></p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+
+            <!-- Columna Izquierda: Formularios -->
+            <div class="order-2 lg:order-1">
+                <h2 class="text-xl font-semibold mb-4">Información de Contacto y Envío</h2>
+                <form id="checkout-form" novalidate>
+                     <div class="space-y-4">
+                        <div>
+                            <label for="email" class="form-label">Dirección de correo electrónico</label>
+                            <input type="email" id="email" class="form-input" placeholder="tu@email.com" required>
+                        </div>
+                        <div>
+                            <label for="name" class="form-label">Nombre Completo</label>
+                            <input type="text" id="name" class="form-input" placeholder="Juan Pérez" required>
+                        </div>
+                        <div>
+                            <label for="address" class="form-label">Dirección de Envío</label>
+                            <input type="text" id="address" class="form-input" placeholder="Calle Falsa 123, Ciudad" required>
+                        </div>
+                     </div>
+
+                    <div class="mt-8">
+                        <div id="checkout-btn-container">
+                            <button type="submit" id="checkout-btn" class="w-full bg-indigo-600 text-white font-bold py-4 rounded-lg hover:bg-indigo-700 transition-all text-lg flex items-center justify-center disabled:bg-indigo-400 disabled:cursor-not-allowed">
+                               <span id="button-text">Pagar</span>
+                               <svg id="loader" class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                               </svg>
+                            </button>
+                        </div>
+                        <!-- Este contenedor se llenará con el botón de MercadoPago -->
+                        <div id="wallet_container" class="mt-4"></div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Columna Derecha: Resumen del Pedido -->
+            <div class="order-1 lg:order-2">
+                <div class="bg-white rounded-lg shadow-sm p-6 lg:sticky lg:top-12">
+                    <h2 class="text-xl font-semibold border-b pb-4 mb-4">Tu Pedido</h2>
+                    <div id="order-summary" class="space-y-4">
+                        <!-- Los productos se añadirán aquí dinámicamente -->
+                    </div>
+                    <div class="border-t mt-6 pt-6 space-y-4">
+                        <div class="flex justify-between"><span>Subtotal</span><span id="summary-subtotal" class="font-semibold">$0.00</span></div>
+                        <div class="flex justify-between"><span>Gastos de envío</span><span id="summary-shipping" class="font-semibold">$0.00</span></div>
+                        <div class="border-t pt-4 mt-4"><div class="flex justify-between font-bold text-lg"><span>Total</span><span id="summary-total">$0.00</span></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // IMPORTANTE: Reemplaza con tu Public Key de Mercado Pago
+        const YOUR_PUBLIC_KEY = 'APP_USR-b2b31af4-7b53-466c-bf0b-430714909357'; 
+        const mp = new MercadoPago(YOUR_PUBLIC_KEY, { locale: 'es-AR' });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const cartManager = { getCart: () => JSON.parse(localStorage.getItem('tiendaModernaCart')) || [] };
+            
+            // --- Elementos del DOM ---
+            const summaryContainer = document.getElementById('order-summary');
+            const checkoutBtn = document.getElementById('checkout-btn');
+            const buttonText = document.getElementById('button-text');
+            const loader = document.getElementById('loader');
+            const form = document.getElementById('checkout-form');
+            const walletContainer = document.getElementById('wallet_container');
+            let totalAmount = 0;
+
+            // --- Lógica de Notificaciones de Error ---
+            function showError(message) {
+                const errorContainer = document.getElementById('error-container');
+                const errorText = document.getElementById('error-text');
+                errorText.textContent = message;
+                errorContainer.classList.remove('opacity-0', 'translate-y-2');
+                setTimeout(() => {
+                    errorContainer.classList.add('opacity-0', 'translate-y-2');
+                }, 4000); // Oculta el mensaje después de 4 segundos
+            }
+
+            // --- Lógica del Checkout ---
+            function renderCheckoutSummary() {
+                const cart = cartManager.getCart();
+                if (cart.length === 0) {
+                    summaryContainer.innerHTML = '<p class="text-center text-gray-500">No hay productos para pagar.</p>';
+                    checkoutBtn.disabled = true;
+                    buttonText.textContent = 'Carrito Vacío';
+                    return;
+                }
+                
+                summaryContainer.innerHTML = '';
+                let subtotal = 0;
+                cart.forEach(item => {
+                    const itemTotal = item.quantity * item.precio;
+                    subtotal += itemTotal;
+                    summaryContainer.innerHTML += `
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center"><img src="${item.imagenUrl}" alt="${item.nombre}" class="w-16 h-16 object-cover rounded-md mr-4"><div><h3 class="font-semibold">${item.nombre}</h3><p class="text-sm text-gray-500">Cantidad: ${item.quantity}</p></div></div>
+                            <span class="font-semibold">$${itemTotal.toFixed(2)}</span>
+                        </div>`;
+                });
+
+                const shippingCost = 5.00;
+                totalAmount = subtotal + shippingCost;
+                
+                document.getElementById('summary-subtotal').textContent = `$${subtotal.toFixed(2)}`;
+                document.getElementById('summary-shipping').textContent = `$${shippingCost.toFixed(2)}`;
+                document.getElementById('summary-total').textContent = `$${totalAmount.toFixed(2)}`;
+                buttonText.textContent = `Pagar $${totalAmount.toFixed(2)}`;
+            }
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                // Validación simple del formulario
+                if (!form.checkValidity()) {
+                    showError("Por favor, completa todos los campos requeridos.");
+                    return;
+                }
+                
+                setLoading(true);
+
+                const cart = cartManager.getCart();
+                const itemsForMercadoPago = cart.map(item => ({
+                    id: item.id,
+                    title: item.nombre,
+                    quantity: item.quantity,
+                    unit_price: parseFloat(item.precio),
+                    currency_id: 'ARS' // Asegúrate que esta es la moneda correcta
+                }));
+                
+                // Recopilamos datos del cliente para pasarlos al webhook
+                const clientData = {
+                    email: document.getElementById('email').value,
+                    name: document.getElementById('name').value,
+                    address: document.getElementById('address').value,
+                };
+
+                try {
+                    // La URL debe apuntar a tu servidor backend
+                    const response = await fetch('http://localhost:3000/create_preference', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            items: itemsForMercadoPago, 
+                            payer_email: clientData.email,
+                            metadata: clientData // Enviamos los datos del cliente como metadata
+                        })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Error del servidor.');
+                    }
+                    
+                    const preference = await response.json();
+
+                    if(preference.id) {
+                        // Ocultamos nuestro botón y mostramos el de MP
+                        document.getElementById('checkout-btn-container').style.display = 'none';
+                        mp.wallet({
+                            preferenceId: preference.id,
+                            render: {
+                                container: '#wallet_container',
+                                label: 'Pagar de Forma Segura'
+                            }
+                        });
+                    } else {
+                        throw new Error('No se pudo obtener el ID de la preferencia de pago.');
+                    }
+                } catch (error) {
+                    console.error('Error al procesar el pago:', error);
+                    showError(error.message || 'Hubo un error al procesar el pago. Intenta de nuevo.');
+                    setLoading(false);
+                }
+            });
+
+            function setLoading(isLoading) {
+                checkoutBtn.disabled = isLoading;
+                if (isLoading) {
+                    buttonText.style.display = 'none';
+                    loader.style.display = 'block';
+                } else {
+                    buttonText.style.display = 'block';
+                    loader.style.display = 'none';
+                }
+            }
+            
+            renderCheckoutSummary();
+        });
+    </script>
+</body>
+</html>
+

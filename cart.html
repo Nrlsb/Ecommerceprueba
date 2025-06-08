@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carrito de Compras - Tienda Moderna</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f9fafb; }
+        input[type='number']::-webkit-inner-spin-button, input[type='number']::-webkit-outer-spin-button { appearance: none; -webkit-appearance: none; margin: 0; }
+        .modal-overlay { transition: opacity 0.3s ease; }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- Header -->
+    <header class="bg-white shadow-sm sticky top-0 z-40">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <a href="index.html" class="text-2xl font-bold text-gray-900">Tienda<span class="text-indigo-600">Moderna</span></a>
+            <a href="index.html" class="text-indigo-600 hover:text-indigo-800 font-semibold"><i class="fas fa-arrow-left mr-2"></i>Seguir comprando</a>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-6 py-12">
+        <h1 class="text-3xl font-bold text-center mb-8">Tu Carrito de Compras</h1>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+            <div class="lg:col-span-2 bg-white rounded-lg shadow p-6">
+                <div id="cart-items-container"></div>
+                 <div id="empty-cart-message" class="hidden text-center py-12">
+                    <i class="fas fa-shopping-cart fa-3x text-gray-300 mb-4"></i>
+                    <h2 class="text-xl font-semibold mb-2">Tu carrito está vacío</h2>
+                    <p class="text-gray-500">Parece que no has añadido nada a tu carrito todavía.</p>
+                    <a href="index.html" class="mt-4 inline-block bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700">Ir a la tienda</a>
+                </div>
+            </div>
+
+            <!-- Resumen del Pedido -->
+            <div id="order-summary-container" class="lg:col-span-1 bg-white rounded-lg shadow p-6 sticky top-28">
+                <h2 class="text-xl font-bold border-b pb-4 mb-4">Resumen del Pedido</h2>
+                <div class="space-y-4">
+                    <div class="flex justify-between"><span class="text-gray-600">Subtotal</span><span id="summary-subtotal" class="font-semibold">$0.00</span></div>
+                    <div class="flex justify-between"><span class="text-gray-600">Gastos de envío</span><span id="summary-shipping" class="font-semibold">$0.00</span></div>
+                    <div class="border-t pt-4 mt-4"><div class="flex justify-between font-bold text-lg"><span>Total</span><span id="summary-total">$0.00</span></div></div>
+                </div>
+                <a href="checkout.html" id="checkout-link" class="block text-center w-full bg-indigo-600 text-white font-bold py-3 mt-6 rounded-lg hover:bg-indigo-700 transition-all-smooth">Proceder al Pago</a>
+            </div>
+        </div>
+    </main>
+    
+    <!-- Modal de Confirmación para Eliminar Producto -->
+    <div id="confirm-delete-modal" class="modal-overlay fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4 z-50 hidden"
+    >
+        <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm mx-auto">
+            <h3 class="text-lg font-bold mb-4">Confirmar Eliminación</h3>
+            <p class="text-gray-600 mb-6">¿Estás seguro de que quieres eliminar este producto de tu carrito?</p>
+            <div class="flex justify-end space-x-4">
+                <button id="cancel-delete-btn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">Cancelar</button>
+                <button id="confirm-delete-btn" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- GESTIÓN DEL CARRITO (CartManager) ---
+            const cartManager = {
+                getCart: function() { return JSON.parse(localStorage.getItem('tiendaModernaCart')) || []; },
+                saveCart: function(cart) { localStorage.setItem('tiendaModernaCart', JSON.stringify(cart)); },
+                updateQuantity: function(productId, newQuantity) {
+                    const cart = this.getCart();
+                    const productIndex = cart.findIndex(item => item.id === productId);
+                    if (productIndex !== -1) {
+                        if (newQuantity > 0) {
+                            cart[productIndex].quantity = newQuantity;
+                        } else {
+                            // Si la cantidad es 0 o menos, eliminamos el producto
+                            cart.splice(productIndex, 1);
+                        }
+                        this.saveCart(cart);
+                    }
+                },
+                removeItem: function(productId) {
+                    const updatedCart = this.getCart().filter(item => item.id !== productId);
+                    this.saveCart(updatedCart);
+                }
+            };
+
+            // --- ELEMENTOS DEL DOM ---
+            const cartItemsContainer = document.getElementById('cart-items-container');
+            const emptyCartMessage = document.getElementById('empty-cart-message');
+            const orderSummaryContainer = document.getElementById('order-summary-container');
+            const modal = document.getElementById('confirm-delete-modal');
+            const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+            const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+            let productIdToDelete = null;
+
+            // --- FUNCIONES DE RENDERIZADO ---
+            function renderCart() {
+                const cart = cartManager.getCart();
+                cartItemsContainer.innerHTML = ''; 
+                if (cart.length === 0) {
+                    emptyCartMessage.classList.remove('hidden');
+                    orderSummaryContainer.classList.add('hidden');
+                } else {
+                    emptyCartMessage.classList.add('hidden');
+                    orderSummaryContainer.classList.remove('hidden');
+                    cart.forEach(item => {
+                        const itemElement = document.createElement('div');
+                        itemElement.className = 'cart-item flex flex-col sm:flex-row items-center justify-between py-4 border-b';
+                        itemElement.innerHTML = `
+                            <div class="flex items-center mb-4 sm:mb-0">
+                                <img src="${item.imagenUrl}" alt="${item.nombre}" class="w-20 h-20 object-cover rounded-md mr-4">
+                                <div>
+                                    <h3 class="font-semibold text-lg">${item.nombre}</h3>
+                                    <p class="text-sm text-gray-500">Precio unitario: $${parseFloat(item.precio).toFixed(2)}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 sm:space-x-4">
+                                <div class="flex items-center border rounded-md">
+                                    <button class="quantity-btn p-2" data-action="decrease" data-id="${item.id}">-</button>
+                                    <input type="number" class="quantity-input w-12 text-center border-l border-r" value="${item.quantity}" min="1" data-id="${item.id}">
+                                    <button class="quantity-btn p-2" data-action="increase" data-id="${item.id}">+</button>
+                                </div>
+                                <p class="item-total font-bold w-20 text-center">$${(item.precio * item.quantity).toFixed(2)}</p>
+                                <button class="remove-item-btn text-gray-500 hover:text-red-500" data-id="${item.id}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>`;
+                        cartItemsContainer.appendChild(itemElement);
+                    });
+                    updateOrderSummary();
+                }
+            }
+            
+            function updateOrderSummary() {
+                const cart = cartManager.getCart();
+                const subtotal = cart.reduce((sum, item) => sum + (item.precio * item.quantity), 0);
+                // Envío fijo, podrías hacerlo más complejo si quisieras
+                const shipping = subtotal > 0 ? 5.00 : 0.00;
+                const total = subtotal + shipping;
+                document.getElementById('summary-subtotal').textContent = `$${subtotal.toFixed(2)}`;
+                document.getElementById('summary-shipping').textContent = `$${shipping.toFixed(2)}`;
+                document.getElementById('summary-total').textContent = `$${total.toFixed(2)}`;
+            }
+
+            // --- LÓGICA DEL MODAL ---
+            function showModal(productId) {
+                productIdToDelete = productId;
+                modal.classList.remove('hidden');
+            }
+
+            function hideModal() {
+                productIdToDelete = null;
+                modal.classList.add('hidden');
+            }
+
+            // --- EVENT LISTENERS ---
+            cartItemsContainer.addEventListener('click', (e) => {
+                const target = e.target;
+                const button = target.closest('button');
+
+                if (button?.classList.contains('quantity-btn')) {
+                    const productId = button.dataset.id;
+                    const action = button.dataset.action;
+                    const item = cartManager.getCart().find(p => p.id === productId);
+                    if (item) {
+                        let newQuantity = item.quantity + (action === 'increase' ? 1 : -1);
+                        cartManager.updateQuantity(productId, newQuantity);
+                        renderCart();
+                    }
+                }
+                
+                if (button?.classList.contains('remove-item-btn')) {
+                    const productId = button.dataset.id;
+                    showModal(productId); // Muestra el modal en lugar de confirm()
+                }
+            });
+
+            cartItemsContainer.addEventListener('change', (e) => {
+                if (e.target.matches('.quantity-input')) {
+                    const newQuantity = parseInt(e.target.value, 10);
+                    if (!isNaN(newQuantity)) {
+                        cartManager.updateQuantity(e.target.dataset.id, newQuantity);
+                    }
+                    renderCart();
+                }
+            });
+
+            // Listeners del modal
+            cancelDeleteBtn.addEventListener('click', hideModal);
+            confirmDeleteBtn.addEventListener('click', () => {
+                if (productIdToDelete) {
+                    cartManager.removeItem(productIdToDelete);
+                    renderCart();
+                }
+                hideModal();
+            });
+            
+            // --- INICIALIZACIÓN ---
+            renderCart();
+        });
+    </script>
+</body>
+</html>
