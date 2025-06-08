@@ -1,0 +1,12 @@
+# Archivos de dependencias de Node.js
+node_modules
+
+# Archivo de variables de entorno
+.env
+
+# Archivo de credenciales de Firebase
+firebase-service-account.json
+
+# Archivos de sistema operativo
+.DS_Store
+Thumbs.db
